@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文字数カウント</title>
+<meta name="description" content="広告なし・シンプルな文字数カウントツール。入力はすべてブラウザ内で処理され、サーバーには送信されません。">
+<style>
+  :root {
+    --bg: #fbfbf9;
+    --fg: #1c1c1a;
+    --muted: #6d6d64;
+    --line: #e5e5df;
+    --accent: #6b5b3e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18;
+      --fg: #ececea;
+      --muted: #9a9a92;
+      --line: #33332f;
+      --accent: #c9b78c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.9rem 1.1rem 0.6rem;
+    flex-wrap: wrap;
+  }
+  h1 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: 0.02em;
+  }
+  .counts {
+    display: flex;
+    align-items: baseline;
+    gap: 1.2rem;
+    margin-left: auto;
+    flex-wrap: wrap;
+  }
+  .count-main {
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+  }
+  .count-main .label { font-size: 0.8rem; font-weight: 500; color: var(--muted); margin-right: 0.3rem; }
+  .count-sub {
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .count-sub b { font-weight: 600; color: var(--fg); }
+  main { flex: 1; display: flex; padding: 0 1.1rem 0.6rem; }
+  textarea {
+    flex: 1;
+    width: 100%;
+    resize: none;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--fg);
+    padding: 1rem 1.1rem;
+    font-size: 1.05rem;
+    line-height: 1.7;
+    font-family: inherit;
+  }
+  textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .toolbar { display: flex; gap: 0.5rem; padding: 0 1.1rem; }
+  button {
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 0.35rem 0.8rem;
+    cursor: pointer;
+  }
+  button:hover { color: var(--fg); border-color: var(--accent); }
+  footer {
+    text-align: center;
+    padding: 0.9rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>文字数カウント</h1>
+    <div class="counts">
+      <div class="count-main" role="status" aria-live="polite"><span class="label">文字数</span><span id="total">0</span></div>
+    </div>
+  </header>
+
+  <main>
+    <textarea id="input" aria-label="文字数を数えるテキスト" placeholder="ここに入力・貼り付け" autofocus></textarea>
+  </main>
+
+  <div class="toolbar">
+    <button id="copy">コピー</button>
+    <button id="clear">全消去</button>
+  </div>
+
+  <footer>
+    powered by <a href="https://nitta-jozo.co.jp/" target="_blank" rel="noopener noreferrer">nitta-jozo</a>
+    　— 入力はブラウザ内で処理され、サーバーには送信されません（見た目どおりの1文字＝改行も1文字として数えます）
+  </footer>
+
+<script>
+  const input = document.getElementById('input');
+  const totalEl = document.getElementById('total');
+  const copyBtn = document.getElementById('copy');
+  const fmt = n => n.toLocaleString('ja-JP');
+
+  // 「見た目どおりの1文字」で数える（書記素クラスタ単位）。
+  // 国旗・合字絵文字・結合文字なども1文字として扱える。非対応環境はコードポイントで代替。
+  const seg = (typeof Intl !== 'undefined' && Intl.Segmenter)
+    ? new Intl.Segmenter('ja', { granularity: 'grapheme' })
+    : null;
+  const countChars = s => {
+    if (!s) return 0;
+    return seg ? [...seg.segment(s)].length : [...s].length;
+  };
+
+  function update() {
+    totalEl.textContent = fmt(countChars(input.value));
+  }
+
+  input.addEventListener('input', update);
+
+  document.getElementById('clear').addEventListener('click', () => {
+    input.value = '';
+    update();
+    input.focus();
+  });
+
+  let copyResetTimer;
+  function flashCopy(label) {
+    copyBtn.textContent = label;
+    clearTimeout(copyResetTimer);
+    copyResetTimer = setTimeout(() => { copyBtn.textContent = 'コピー'; }, 1200);
+  }
+  copyBtn.addEventListener('click', async () => {
+    if (!input.value) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(input.value);
+      } else {
+        // secure context でない場合などのフォールバック
+        input.select();
+        document.execCommand('copy');
+        window.getSelection().removeAllRanges();
+      }
+      flashCopy('コピーしました');
+    } catch (e) {
+      flashCopy('コピーできませんでした');
+    }
+  });
+
+  update();
+</script>
+</body>
+</html>
