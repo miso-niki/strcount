@@ -59,12 +59,6 @@
     color: var(--accent);
   }
   .count-main .label { font-size: 0.8rem; font-weight: 500; color: var(--muted); margin-right: 0.3rem; }
-  .count-sub {
-    font-size: 0.85rem;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .count-sub b { font-weight: 600; color: var(--fg); }
   main { flex: 1; display: flex; padding: 0 1.1rem 0.6rem; }
   textarea {
     flex: 1;
@@ -79,8 +73,11 @@
     line-height: 1.7;
     font-family: inherit;
   }
-  textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
   .toolbar { display: flex; gap: 0.5rem; padding: 0 1.1rem; }
   button {
     font: inherit;
@@ -93,6 +90,7 @@
     cursor: pointer;
   }
   button:hover { color: var(--fg); border-color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   footer {
     text-align: center;
     padding: 0.9rem;
@@ -172,6 +170,14 @@
       }
       flashCopy('コピーしました');
     } catch (e) {
+      flashCopy('コピーできませんでした');
+    }
+  });
+
+  update();
+</script>
+</body>
+</html>
       flashCopy('コピーできませんでした');
     }
   });
