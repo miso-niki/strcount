@@ -96,6 +96,37 @@
   button:hover { color: var(--fg); border-color: var(--accent); }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+  .tax { display: flex; justify-content: center; padding: 0.2rem 1.1rem 0.4rem; }
+  .tax-inner {
+    display: flex; align-items: center; justify-content: center;
+    flex-wrap: wrap; gap: 0.7rem 1rem;
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 0.55rem 1rem; max-width: 92vw;
+  }
+  .tax-title { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+  .tax-field { font-size: 0.85rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.4rem; }
+  .tax-field input {
+    width: 9ch; font: inherit; font-size: 1rem; text-align: right;
+    border: 1px solid var(--line); border-radius: 7px; background: transparent;
+    color: var(--fg); padding: 0.3rem 0.5rem; font-variant-numeric: tabular-nums;
+  }
+  .tax-field input:focus-visible {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  .tax-arrow { color: var(--muted); }
+  .tax-result { display: inline-flex; align-items: baseline; gap: 0.5rem; }
+  .tax-excl { font-size: 1.3rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .tax-amt { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { border: none; border-radius: 0; border-right: 1px solid var(--line); padding: 0.3rem 0.6rem; }
+  .seg button:last-child { border-right: none; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+  #rounding {
+    font: inherit; font-size: 0.85rem; color: var(--fg); background: transparent;
+    border: 1px solid var(--line); border-radius: 7px; padding: 0.3rem 0.5rem; cursor: pointer;
+  }
+
   footer {
     text-align: center;
     padding: 0.9rem;
@@ -111,6 +142,29 @@
     <h1>文字数カウント</h1>
     <div class="count-main" role="status" aria-live="polite"><span class="label">文字数</span><span id="total">0</span></div>
   </header>
+
+  <section class="tax" aria-label="税込価格から税抜価格を計算">
+    <div class="tax-inner">
+      <span class="tax-title">税込→税抜</span>
+      <label class="tax-field">税込
+        <input id="taxIncl" type="text" inputmode="numeric" placeholder="0" aria-label="税込価格（整数）">
+        円</label>
+      <span class="tax-arrow" aria-hidden="true">→</span>
+      <span class="tax-result" role="status" aria-live="polite">
+        <span class="tax-excl" id="taxExcl">—</span>
+        <span class="tax-amt" id="taxAmt"></span>
+      </span>
+      <span class="seg" role="group" aria-label="税率">
+        <button type="button" data-n="10" data-d="11" aria-pressed="true">10%</button>
+        <button type="button" data-n="25" data-d="27" aria-pressed="false">8%</button>
+      </span>
+      <select id="rounding" aria-label="端数処理">
+        <option value="floor">切り捨て</option>
+        <option value="round">四捨五入</option>
+        <option value="ceil">切り上げ</option>
+      </select>
+    </div>
+  </section>
 
   <main>
     <textarea id="input" aria-label="文字数を数えるテキスト" placeholder="ここに入力・貼り付け" autofocus></textarea>
@@ -175,7 +229,48 @@
     }
   });
 
+  // --- 税込 → 税抜 計算 ---
+  const taxIncl = document.getElementById('taxIncl');
+  const taxExclEl = document.getElementById('taxExcl');
+  const taxAmtEl = document.getElementById('taxAmt');
+  const roundingSel = document.getElementById('rounding');
+  // 税抜 = 税込 / (1+税率) を有理数で計算し浮動小数点誤差を防ぐ。
+  // 10% → ×10÷11、8% → ×25÷27（例: 1100→1000, 1080→1000 が正確に出る）
+  let mulN = 10, mulD = 11;
+  let rounding = 'floor';
+
+  function calcTax() {
+    // 全角数字も受け付ける（NFKC正規化）。整数円のみ有効。
+    const s = taxIncl.value.normalize('NFKC').trim();
+    if (!/^\d+$/.test(s)) {
+      taxExclEl.textContent = '—';
+      taxAmtEl.textContent = '';
+      return;
+    }
+    const v = Number(s);
+    const raw = (v * mulN) / mulD;
+    const excl = rounding === 'floor' ? Math.floor(raw)
+               : rounding === 'ceil'  ? Math.ceil(raw)
+               : Math.round(raw);
+    const tax = v - excl;
+    taxExclEl.textContent = '¥' + fmt(excl);
+    taxAmtEl.textContent = '消費税 ¥' + fmt(tax);
+  }
+
+  taxIncl.addEventListener('input', calcTax);
+  roundingSel.addEventListener('change', () => { rounding = roundingSel.value; calcTax(); });
+  document.querySelectorAll('.seg button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', 'false'));
+      b.setAttribute('aria-pressed', 'true');
+      mulN = parseInt(b.dataset.n, 10);
+      mulD = parseInt(b.dataset.d, 10);
+      calcTax();
+    });
+  });
+
   update();
+  calcTax();
 </script>
 </body>
 </html>
